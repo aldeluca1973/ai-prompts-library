@@ -1,0 +1,37 @@
+# Import our llms, summarize chain and text splitter from langchain
+from langchain.llms import OpenAI 
+from langchain.chains.summarize import load_summarize_chain 
+from langchain.text_splitter import RecursiveCharracterTextSplitter
+
+# We add our OpenAI API Key
+openai_api_key = ""
+
+# We create our large language model
+# temperature = The “official” temperature range is from 0 to 1 - meaning the values inside these limits are recommended to make a Large Language Model (LLM) respond in a human-acceptable way depending on the user's questions and prompts.
+llm = OpenAI(temperature=0, openai_api_key=openai_api_key)
+
+# Get your text file 
+with open('data/essay/ReAct.txt', 'r') as a file 
+  text = file.read()
+
+# Print the last 300 characters as a preview 
+print (text[300:]) 
+
+# Now we check number of tokens 
+num_tokens = llm.get_num_tokens(text)
+
+print (f"This file include {num_tokens}.")
+
+# Now we create slices with our text documantation. We use RecursiveCharacterTextSplitter  
+# We explain RecursiveCharacterTextSplitter promtprs under the code 
+
+text_splitter = RecursiveCharacterTextSplitter(separators=["\n\n", "\n"], chunk_size=5000, chunk_overlap=350)
+docs = text_splitter.create_documents([text])
+
+print (f"You now have {len(docs)} docs intead of our text")
+
+# Get our chain, we use shain_type map_reduce and we run in parallel our first docs 
+chain = load_load_summarize_chain(llm=llm, chain_type='map_reduce')# verbose=True optional to see what is getting sent to the LLM
+
+output = chain.run(docs)
+print (output) 

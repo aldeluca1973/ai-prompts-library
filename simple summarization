@@ -1,0 +1,42 @@
+from langchain.llms import OpenAI
+from langchain import PromptTemplate
+
+# We add our OpenAI API Key
+openai_api_key = ""
+
+# We create our large language model
+# Note, the default model is already 'text-davinci-003' but I call it out here explicitly so you know where to change it later if you want
+llm = OpenAI(temperature=0, model_name='text-davinci-003', openai_api_key=openai_api_key)
+
+# Create our template
+template = """
+%INSTRUCTIONS:
+Please summarize the following piece of text.
+Respond in a manner that a 5 year old would understand.
+
+%TEXT:
+{text}
+"""
+
+# Create a prompt template 
+prompt = PromptTemplate(
+    # We create input variable
+    input_variables=["text"],
+    # Add our template
+    template=template,
+)
+
+confusing_text = """
+BLA BLA BLA...
+
+
+
+BLA BLA
+"""
+
+print ("------- Prompt Start-------")
+
+final_prompt = prompt.format(text=confusing_text)
+print(final_prompt)
+
+print ("------- Prompt Finsh-------")

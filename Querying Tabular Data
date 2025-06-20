@@ -1,0 +1,19 @@
+from langchain import OpenAI, SQLDatabase, SQLDatabaseChain
+
+# Set our API key to llm variable for OpenAI
+llm = OpenAI(temperature=0, openai_api_key=openai_api_key)
+
+# Set the connection to the SQLite database
+sqlite_db_path = 'data/ecommerce_data.db'
+db = SQLDatabase.from_uri(f"sqlite:///{sqlite_db_path}")
+
+# Create database chain
+db_chain = SQLDatabaseChain(database=db, verbose=True)
+
+# Execute the SQL query to get the number of unique products
+query = "SELECT COUNT(DISTINCT product_name) FROM orders;"
+result = db_chain.execute(query)
+
+# Extract and print the number of unique products
+num_products = result[0][0]
+print(f"There are {num_products} unique products in the database.")

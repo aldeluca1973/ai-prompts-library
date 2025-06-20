@@ -1,0 +1,47 @@
+# Import necessary modules
+from langchain.embeddings.openai import OpenAIEmbeddings
+from langchain.vectorstores import FAISS
+from langchain.chains import RetrievalQA
+from langchain import OpenAI
+from langchain.document_loaders import TextLoader
+from langchain.evaluation.qa import QAEvalChain
+
+# Set up the OpenAI Language Model
+llm = OpenAI(temperature=0, openai_api_key=openai_api_key)
+
+# Load the long essay from a text file
+loader = TextLoader('data/long_essay.txt')
+doc = loader.load()
+
+# Split the document into smaller chunks
+text_splitter = RecursiveCharacterTextSplitter(chunk_size=3000, chunk_overlap=400)
+docs = text_splitter.split_documents(doc)
+
+# Calculate the average number of characters per chunk
+num_total_characters = sum([len(x.page_content) for x in docs])
+average_characters_per_chunk = num_total_characters / len(docs)
+
+# Embeddings and Document Store setup
+embeddings = OpenAIEmbeddings(openai_api_key=openai_api_key)
+docsearch = FAISS.from_documents(docs, embeddings)
+
+# Create a RetrievalQA chain using the Language Model, Document Store, and input key
+chain = RetrievalQA.from_chain_type(llm=llm, chain_type="qa", retriever=docsearch.as_retriever(), input_key="question")
+
+# Define some sample question-answer pairs
+question_answers = [
+    {'question': "What is the main idea of the essay?", 'answer': 'The importance of artificial intelligence in modern society'},
+    {'question': "Which section discusses the impact of AI on healthcare?", 'answer': 'Section 3'},
+]
+
+# Get predictions using the RetrievalQA chain
+predictions = chain.apply(question_answers)
+
+# Create an evaluation chain using the Language Model
+eval_chain = QAEvalChain.from_llm(llm)
+
+# Grade the predictions using the evaluation chain
+graded_outputs = eval_chain.evaluate(question_answers, predictions, question_key="question", prediction_key="result", answer_key='answer')
+
+# Print the graded outputs
+print(graded_outputs)

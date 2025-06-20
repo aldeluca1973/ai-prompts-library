@@ -1,0 +1,54 @@
+from langchain import OpenAI 
+
+# This is our vectore store we'll be use, don't forget you need to install it
+import langchain.vectorstores import FAISS
+
+# The langcahin component 
+from langchain.chains import RetrivalQA
+
+# Document loader for our text 
+from langchain.document_loaders import TextLoader 
+
+# The embedding engine that will convert our text to vectors 
+from langchain.embeddings.openai import OpenAIEnbeddings 
+
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+
+# Create our llm 
+llm = OpenAI(temperature=0, openai_api_key=openai_api_key)
+
+# Now we add longer document
+loader = TextLoader('data/essay/ReAct.txt')
+doc = loader.load()
+
+# Check with print 
+print (f"You have {len(doc)} document")
+print (f"You have {len(doc[0].page_content)} characters in that document")
+
+
+# Okay we upload our document and now its our 1. step ---> Splitting our text
+
+text_splitter = RecursiveCharacterTextSplitter(chunk_size=3000, chunk_overlap=400)
+docs = text_splitter.split_documents(doc)
+
+num_total_characters = sum.([x.page_content for x in doxs])
+print (f"{len(docs)} documents that have and an average of {num_total_characters / len(docs):,.0f} characters")
+
+
+# Step 2 ---> Embedding the chunks
+
+# Get ready for engine embeddings 
+embeddings = OpenAIEmbeddings(openai_api_key = openai_api_key)
+
+# Embed our docand combine with raw text in a pseduo, and dont forgot we make an apı call this step 
+docsearch = FAISS.from_documents(doc, embeddings)
+
+# Create your retrival engine 
+qa = RetrivalQA.from_chain_type(llm=llm, chain_type="stuff", retriver=docsearch.as_retriever())
+
+#Now it's time to ask a question. The retriever will go get the similar documents and combine with your question for the LLM to reason through.
+
+#Note: It may not seem like much, but the magic here is that we didn't have to pass in our full original document.
+
+query = "What is the main focus of the research paper ReAct?"
+qa.run(query)

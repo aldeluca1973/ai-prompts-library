@@ -1,0 +1,316 @@
+"""
+Excel Q&A Translator
+
+What it does
+- Reads an Excel/CSV with two columns: a question and an answer (per row)
+- Translates both columns into one or more target languages
+- Writes a single Excel file with one sheet per target language, plus an 'original' sheet
+- Logs a CSV of any failures for quick retry
+
+Why this vs. an "agent"?
+- Faster to implement, deterministic, easy to audit, and repeatable. Ideal for bulk translation jobs.
+
+Providers supported
+- DeepL (character-based pricing, reliable for production)
+- OpenAI (LLM-based) – stub provided; fill in if you prefer LLM translation
+
+Glossary / Terminology Control (NEW)
+- Pass a CSV via `--glossary` to enforce technical terms.
+- CSV schema: first column `source` (original term), then one column per target language code (e.g., `it`, `sv`, `no`, `da`, `fi`, `de`, `fr`, `el`, etc.).
+- For any missing target cell, the script keeps the original term (do‑not‑translate).
+- The script protects terms with placeholders **before** translation and restores the exact mapped terms **after** translation. Works with any provider.
+
+Token Estimation (for LLM-based translation)
+- rough_tokens(text) ≈ ceil(len(text) / 4)
+- per row, per language ≈ input_tokens + output_tokens ≈ 2 * rough_tokens(Q + A)
+- multiply by number of rows and number of target languages
+
+Usage (examples)
+- python translate_qna.py --in myfile.xlsx --question-col Question --answer-col Answer --targets it es de fr --out translations.xlsx --provider deepl
+- python translate_qna.py --in myfile.csv --question-col Q --answer-col A --targets it --out out.xlsx --provider deepl --source-lang EN
+
+Env
+- For DeepL: export DEEPL_API_KEY="..."
+- (Optional) For OpenAI: export OPENAI_API_KEY="..." (you must implement the stub)
+"""
+
+from __future__ import annotations
+import os
+import sys
+import math
+import time
+import argparse
+from typing import List, Optional, Tuple
+
+import pandas as pd
+import re
+
+# Optional imports guarded inside provider blocks to avoid hard deps if not used
+
+def rough_tokens(text: str) -> int:
+    """Very rough token estimate: ~4 chars/token."""
+    if not isinstance(text, str) or not text:
+        return 0
+    return math.ceil(len(text) / 4)
+
+
+def estimate_job_tokens(df: pd.DataFrame, q_col: str, a_col: str, num_langs: int) -> int:
+    """Estimate total tokens for LLM-based translation across all rows & languages."""
+    total_tokens_per_language = 0
+    for _, row in df.iterrows():
+        q = str(row.get(q_col, "") or "")
+        a = str(row.get(a_col, "") or "")
+        t = rough_tokens(q + "\n" + a)
+        # input + output ≈ 2x
+        total_tokens_per_language += 2 * t
+    return total_tokens_per_language * max(1, num_langs)
+
+
+def read_table(path: str, sheet: Optional[str]) -> pd.DataFrame:
+    ext = os.path.splitext(path)[1].lower()
+    if ext in (".xlsx", ".xlsm", ".xls"):
+        return pd.read_excel(path, sheet_name=sheet) if sheet else pd.read_excel(path)
+    elif ext in (".csv", ".tsv"):
+        sep = "," if ext == ".csv" else "\t"
+        return pd.read_csv(path, sep=sep)
+    else:
+        raise ValueError(f"Unsupported file type: {ext}")
+
+
+def ensure_cols(df: pd.DataFrame, q_col: str, a_col: str):
+    missing = [c for c in [q_col, a_col] if c not in df.columns]
+    if missing:
+        raise KeyError(f"Missing required columns: {missing}. Present: {list(df.columns)}")
+
+
+# ------------------ DeepL Provider ------------------
+
+def translate_deepl(text: str, target_lang: str, source_lang: Optional[str] = None) -> str:
+    import deepl  # pip install deepl
+    api_key = os.getenv("DEEPL_API_KEY")
+    if not api_key:
+        raise RuntimeError("DEEPL_API_KEY not set in environment.")
+    translator = deepl.Translator(api_key)
+    # DeepL target_lang examples: 'IT', 'ES', 'DE', 'FR', 'EN-GB', 'EN-US'
+    # Source can often be None (auto-detect). If given, use like 'EN', 'IT', etc.
+    result = translator.translate_text(text, target_lang=target_lang, source_lang=source_lang)
+    return result.text
+
+
+# ------------------ OpenAI Provider (stub) ------------------
+
+def translate_openai_stub(text: str, target_lang: str, source_lang: Optional[str] = None) -> str:
+    """
+    Placeholder if you want to use an LLM for translation.
+    Implement with your preferred model call and prompt, e.g.:
+
+    from openai import OpenAI
+    client = OpenAI()
+    prompt = f"Translate the following {source_lang or ''} text to {target_lang}. Keep formatting.\n\n{ text }"
+    resp = client.responses.create(
+        model="gpt-4.1-mini",  # or your choice
+        input=[{"role":"user","content":prompt}],
+        max_output_tokens=1500,
+        temperature=0.0,
+    )
+    return resp.output_text
+    """
+    raise NotImplementedError("OpenAI provider not implemented. Use --provider deepl or fill this stub.")
+
+
+def translate_batch(
+    df: pd.DataFrame,
+    q_col: str,
+    a_col: str,
+    targets: List[str],
+    provider: str = "deepl",
+    source_lang: Optional[str] = None,
+    sleep_s: float = 0.2,
+    glossary: Optional[pd.DataFrame] = None,
+    glossary_case_insensitive: bool = False,
+) -> Tuple[dict, list]:
+    """
+    Translates Q & A columns for each target language.
+    Returns (sheets_dict, failures) where:
+      - sheets_dict: { lang: DataFrame }
+      - failures: list of tuples (row_idx, lang, which_col, reason)
+    """
+    failures = []
+    sheets = {}
+
+    # Choose provider fn
+    if provider == "deepl":
+        provider_fn = lambda txt, lang: translate_deepl(txt, lang, source_lang)
+    elif provider == "openai":
+        provider_fn = lambda txt, lang: translate_openai_stub(txt, lang, source_lang)
+    else:
+        raise ValueError("provider must be 'deepl' or 'openai'")
+
+    # Prepare base frame for original sheet
+    sheets["original"] = df.copy()
+
+    # Prepare glossary maps
+    gloss_rows = []
+    if glossary is not None and not glossary.empty:
+        if "source" not in glossary.columns:
+            raise KeyError("Glossary CSV must have a 'source' column.")
+        gloss_rows = glossary.to_dict(orient="records")
+
+    def protect_terms(text: str) -> Tuple[str, List[Tuple[str, str]]]:
+        """Replace source terms with placeholders. Returns (text, pairs) where pairs = [(placeholder, source_term)]."""
+        if not text or not gloss_rows:
+            return text, []
+        orig_text = text
+        pairs = []
+        flags = re.IGNORECASE if glossary_case_insensitive else 0
+        for i, row in enumerate(gloss_rows):
+            src = str(row.get("source", "")).strip()
+            if not src:
+                continue
+            placeholder = f"[[TERM_{i}]]"
+            # simple replacement; for stricter, use word boundaries when safe
+            pattern = re.compile(re.escape(src), flags)
+            orig_text, n = pattern.subn(placeholder, orig_text)
+            if n > 0:
+                pairs.append((placeholder, src))
+        return orig_text, pairs
+
+    def restore_terms(text: str, pairs: List[Tuple[str, str]], lang: str) -> str:
+        if not text or not pairs:
+            return text
+        out = text
+        for placeholder, src in pairs:
+            mapped = src  # default: keep source (do-not-translate)
+            # Use target mapping if provided (column with exact language code)
+            # e.g., glossary has columns: 'it', 'sv', 'no', 'da', 'fi', 'de', 'fr', 'el'
+            # Fall back to src when not provided
+            for row in gloss_rows:
+                if str(row.get("source", "")).strip() == src:
+                    mapped = str(row.get(lang, src) or src)
+                    break
+            out = out.replace(placeholder, mapped)
+        return out
+
+    for lang in targets:
+        out_rows = []
+        for idx, row in df.iterrows():
+            q = str(row.get(q_col, "") or "").strip()
+            a = str(row.get(a_col, "") or "").strip()
+            # Protect terms before translation
+            tq_src, tq_pairs = protect_terms(q)
+            ta_src, ta_pairs = protect_terms(a)
+            tq = ""
+            ta = ""
+            try:
+                tq_trans = provider_fn(tq_src, lang) if tq_src else ""
+                tq = restore_terms(tq_trans, tq_pairs, lang)
+            except Exception as e:
+                failures.append((idx, lang, "question", str(e)))
+            time.sleep(sleep_s)
+            try:
+                ta_trans = provider_fn(ta_src, lang) if ta_src else ""
+                ta = restore_terms(ta_trans, ta_pairs, lang)
+            except Exception as e:
+                failures.append((idx, lang, "answer", str(e)))
+            time.sleep(sleep_s)
+            out_rows.append({
+                "row_index": idx,
+                f"{q_col}_translated": tq,
+                f"{a_col}_translated": ta,
+            })
+        sheets[lang] = pd.DataFrame(out_rows)
+
+    return sheets, failures
+
+
+def write_outputs(
+    sheets: dict,
+    failures: list,
+    out_path: str,
+):
+    # Write Excel with one sheet per key in `sheets`
+    with pd.ExcelWriter(out_path, engine="openpyxl") as writer:
+        for name, frame in sheets.items():
+            # Keep column order sensible
+            if "row_index" in frame:
+                cols = ["row_index"] + [c for c in frame.columns if c != "row_index"]
+                frame = frame[cols]
+            frame.to_excel(writer, sheet_name=str(name)[:31], index=False)
+
+    # Write failures CSV next to Excel
+    if failures:
+        fail_path = os.path.splitext(out_path)[0] + "__failures.csv"
+        fail_df = pd.DataFrame(failures, columns=["row_index", "lang", "which", "error"])
+        fail_df.to_csv(fail_path, index=False)
+        print(f"Some rows failed. Logged: {fail_path}")
+
+
+def main():
+    p = argparse.ArgumentParser(description="Translate Q&A columns in a table.")
+    p.add_argument("--in", dest="in_path", required=True, help="Input Excel/CSV path")
+    p.add_argument("--sheet", dest="sheet", default=None, help="Sheet name (for Excel)")
+    p.add_argument("--question-col", dest="q_col", required=True, help="Question column name")
+    p.add_argument("--answer-col", dest="a_col", required=True, help="Answer column name")
+    p.add_argument("--targets", nargs="+", required=True, help="Target languages (e.g., it es de fr)")
+    p.add_argument("--out", dest="out_path", required=True, help="Output Excel path")
+    p.add_argument("--provider", choices=["deepl", "openai"], default="deepl")
+    p.add_argument("--source-lang", dest="source_lang", default=None, help="Optional source language (e.g., EN)")
+    p.add_argument("--estimate-only", action="store_true", help="Don't translate; only print token estimate (for LLM)")
+    p.add_argument("--sleep", dest="sleep_s", type=float, default=0.2, help="Sleep seconds between calls")
+    p.add_argument("--glossary", dest="glossary_path", default=None, help="CSV with 'source' + language-code columns for term control")
+    p.add_argument("--glossary-case-insensitive", action="store_true", help="Match glossary terms case-insensitively")
+    p.add_argument("--benchmark", dest="benchmark_rows", type=int, default=0, help="Translate this many rows to measure throughput, then exit")
+    args = p.parse_args()
+
+    df = read_table(args.in_path, args.sheet)
+    ensure_cols(df, args.q_col, args.a_col)
+
+    if args.estimate_only:
+        toks = estimate_job_tokens(df, args.q_col, args.a_col, len(args.targets))
+        print(f"Estimated total tokens (LLM-based): {toks:,}")
+        sys.exit(0)
+
+    glossary_df = None
+    if args.glossary_path:
+        glossary_df = pd.read_csv(args.glossary_path)
+
+    if args.benchmark_rows > 0:
+        # small benchmark to compute rows/sec without finishing the whole job
+        test_df = df.head(args.benchmark_rows)
+        start = time.time()
+        _sheets, _fail = translate_batch(
+            df=test_df,
+            q_col=args.q_col,
+            a_col=args.a_col,
+            targets=args.targets,
+            provider=args.provider,
+            source_lang=args.source_lang,
+            sleep_s=args.sleep_s,
+            glossary=glossary_df,
+            glossary_case_insensitive=args.glossary_case_insensitive,
+        )
+        elapsed = time.time() - start
+        total_items = len(test_df) * len(args.targets) * 2  # Q + A
+        rps = total_items / elapsed if elapsed > 0 else 0
+        print(f"BENCHMARK: processed {total_items} items in {elapsed:.2f}s → {rps:.2f} items/sec")
+        print("Estimate your full run by scaling with your total rows and languages.")
+        sys.exit(0)
+
+    sheets, failures = translate_batch(
+        df=df,
+        q_col=args.q_col,
+        a_col=args.a_col,
+        targets=args.targets,
+        provider=args.provider,
+        source_lang=args.source_lang,
+        sleep_s=args.sleep_s,
+        glossary=glossary_df,
+        glossary_case_insensitive=args.glossary_case_insensitive,
+    )
+
+    write_outputs(sheets, failures, args.out_path)
+    print(f"Done. Wrote: {args.out_path}")
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,207 @@
+You are an expert content strategist and copywriter who specializes in repurposing content across multiple platforms while maintaining brand voice and maximizing engagement for each platform's unique audience and algorithm.
+
+SOURCE CONTENT:
+{{ORIGINAL_CONTENT}}
+
+BRAND CONTEXT:
+- Brand Voice: {{BRAND_VOICE_DESCRIPTION}}
+- Target Audience: {{TARGET_AUDIENCE}}
+- Industry: {{INDUSTRY}}
+- Key Messages: {{KEY_MESSAGES}}
+
+YOUR TASK:
+Transform this content into platform-optimized versions for 5 different channels.
+
+---
+
+## 1. LINKEDIN POST (Professional Audience)
+
+**Optimization Strategy:** LinkedIn favors posts with 150-300 words, line breaks every 2-3 lines, and engagement questions.
+
+**Hook (First Line):**
+[Compelling statement that shows up in feed preview - 40 characters max]
+
+**Body:**
+[
+- Start with a pattern interrupt or surprising insight
+- Use short paragraphs (1-3 sentences each)
+- Include relevant emoji for visual breaks (but not overuse)
+- Add personal experience or story if possible
+- End with engagement question or CTA
+- 150-250 words total
+]
+
+**Hashtags:**
+[3-5 relevant hashtags - mix of popular and niche]
+
+---
+
+## 2. TWITTER THREAD (Tech/Business Audience)
+
+**Thread Structure:** 6-8 tweets, first tweet is hook, last tweet is CTA
+
+**Tweet 1 (Hook):**
+[Attention-grabbing statement or question - ends with 🧵]
+[280 characters max]
+
+**Tweet 2:**
+[Expand on the hook with context]
+
+**Tweet 3:**
+[Key insight #1 with specific example or data]
+
+**Tweet 4:**
+[Key insight #2 with specific example or data]
+
+**Tweet 5:**
+[Key insight #3 with specific example or data]
+
+**Tweet 6:**
+[Practical takeaway or framework]
+
+**Tweet 7 (CTA):**
+[Call to action - follow, subscribe, visit link]
+
+---
+
+## 3. EMAIL NEWSLETTER (Subscriber Audience)
+
+**Subject Line (3 options):**
+1. [Curiosity-driven, 40 characters]
+2. [Benefit-focused, 40 characters]
+3. [Urgent/timely, 40 characters]
+
+**Preview Text:**
+[50 characters - complements subject line]
+
+**Email Body:**
+
+Hi [First Name],
+
+[Opening hook - 1-2 sentences referencing recent news, trend, or pain point]
+
+[Core content - 3-4 short paragraphs with subheadings]
+
+**[Subheading 1]**
+[2-3 sentences]
+
+**[Subheading 2]**
+[2-3 sentences]
+
+**[Subheading 3]**
+[2-3 sentences]
+
+**Here's what this means for you:**
+[Practical application - 2-3 bullets]
+- [Actionable takeaway]
+- [Actionable takeaway]
+- [Actionable takeaway]
+
+[CTA button text: "________"]
+
+[P.S. - One-liner that reinforces value or creates FOMO]
+
+---
+
+## 4. INSTAGRAM CAPTION (Visual-First Audience)
+
+**Caption Strategy:** First 2 lines visible in feed, use emojis, conversational tone
+
+**Line 1-2 (Hook):**
+[Compelling opening that's visible without "...more"]
+
+**Main Caption:**
+[
+- Storytelling or personal angle
+- 3-5 short paragraphs
+- Use emojis to break up text
+- Conversational and authentic tone
+- End with call to action
+- 800-1200 characters
+]
+
+**CTA:**
+[Engagement prompt - "Save this post" / "Tag someone who needs this" / "Drop a 🔥 if you agree"]
+
+**Hashtags:**
+[20-25 mix of branded, industry, and discovery hashtags]
+[Place after line break or in first comment]
+
+---
+
+## 5. YOUTUBE VIDEO SCRIPT (Video Audience)
+
+**Video Title (SEO Optimized):**
+[Under 60 characters, includes keyword, compelling]
+
+**Video Description:**
+[First 150 characters appear in search - front-load value]
+
+**Hook (First 10 seconds):**
+[Pattern interrupt - tell them what they'll learn and why it matters NOW]
+
+**Script Structure:**
+
+**INTRO (0:00-0:30)**
+[Welcome, channel context, video promise]
+
+**CONTEXT (0:30-1:30)**
+[Why this topic matters, set up the problem]
+
+**MAIN CONTENT (1:30-8:00)**
+[3-5 key points, each with:]
+- **Point title**
+- Explanation with example
+- Visual cue suggestion [like "show screenshot here"]
+
+**RECAP (8:00-8:45)**
+[Summarize key takeaways as bulleted list]
+
+**CTA (8:45-9:00)**
+[Like, subscribe, comment prompt with specific question]
+
+**Timestamps for Description:**
+0:00 - Intro
+0:30 - [Section name]
+1:30 - [Section name]
+[etc.]
+
+---
+
+## CONTENT REPURPOSING CALENDAR
+
+**Week 1:**
+- Monday: Post LinkedIn version
+- Wednesday: Post Twitter thread
+- Friday: Send email newsletter
+
+**Week 2:**
+- Tuesday: Post Instagram version
+- Thursday: Publish YouTube video
+
+---
+
+## ENGAGEMENT OPTIMIZATION NOTES
+
+**Best Times to Post:**
+- LinkedIn: Tuesday-Thursday, 8-10 AM
+- Twitter: Tuesday-Wednesday, 9 AM-3 PM
+- Email: Tuesday-Thursday, 10 AM
+- Instagram: Monday-Friday, 11 AM-1 PM
+- YouTube: Friday-Sunday, 2-4 PM
+
+**A/B Testing Recommendations:**
+[Suggest 2-3 elements to test for improved performance]
+
+---
+
+CONTENT TRANSFORMATION RULES:
+- Maintain core message but adapt tone for each platform
+- Each version should feel native to the platform
+- Optimize for each platform's algorithm preferences
+- Include platform-specific engagement hooks
+- Adapt length and format to platform best practices
+- Use platform-appropriate visual cues (emojis, line breaks, etc.)
+- Each piece should be self-contained (don't assume they saw other versions)
+
+Generate all 5 platform-optimized versions now.
